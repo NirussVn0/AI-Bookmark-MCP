@@ -5,6 +5,7 @@ import * as path from "node:path";
 
 import { ContentStore } from "../src/content-store.js";
 import { indexBookmarksFromFile } from "../src/index-manager.js";
+import { buildEvenPageOffsets } from "../src/pdf-parser.js";
 
 const sample = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
@@ -30,6 +31,19 @@ const result = await indexBookmarksFromFile(sampleFile, dbPath, { offlineOnly: t
 assert.equal(result.total, 2);
 assert.equal(result.indexed, 2);
 assert.equal(result.failed, 0);
+
+const browserDbPath = path.join(tmp, "browser-missing.db");
+const browserResult = await indexBookmarksFromFile(sampleFile, browserDbPath, { useBrowser: true, browserPort: 9, waitMs: 0, limit: 1, force: true });
+assert.equal(browserResult.total, 1);
+assert.equal(browserResult.indexed, 0);
+assert.equal(browserResult.failed, 1);
+assert.match(browserResult.errors[0]?.message ?? "", /Chrome DevTools Protocol is not available/);
+
+assert.deepEqual(buildEvenPageOffsets("abcdefghij", 3), [
+  { page: 1, start: 0, end: 3 },
+  { page: 2, start: 3, end: 6 },
+  { page: 3, start: 6, end: 10 },
+]);
 
 const store = new ContentStore(dbPath);
 try {

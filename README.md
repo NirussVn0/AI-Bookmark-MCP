@@ -19,6 +19,71 @@ Turn messy browser bookmark exports into a clean knowledge base: classify, merge
 
 ---
 
+## ⚡ Quick Syntax
+
+Use these commands when you want AI Bookmark MCP to behave like a normal CLI sorter, not only an MCP server.
+
+### Merge 2 bookmark files
+
+```bash
+npm run build
+node dist/cli.js merge --out bookmarks_merged.html brave_bookmarks.html comet_bookmarks.html
+```
+
+Local workspace example:
+
+```powershell
+cd E:\bookmark\mcp-server
+npm run build
+node dist/cli.js merge --out E:\bookmark\bookmarks_merged.html E:\bookmark\brave_bookmarks_7_1_26.html E:\bookmark\comet_bookmarks_7_1_26.html
+```
+
+### Export to JSON / CSV / Markdown
+
+```bash
+node dist/cli.js export --format json --out bookmarks.json bookmarks_merged.html
+node dist/cli.js export --format csv --out bookmarks.csv bookmarks_merged.html
+node dist/cli.js export --format markdown --out bookmarks.md bookmarks_merged.html
+```
+
+### Index bookmarks for full-text search
+
+```bash
+node dist/cli.js index --db bookmarks-content.db bookmarks_merged.html
+```
+
+With live public fetching:
+
+```bash
+node dist/cli.js index --db bookmarks-content.db bookmarks_merged.html --limit 50 --fetch-public
+```
+
+With Chrome/CDP extraction:
+
+```bash
+chrome.exe --remote-debugging-port=9222
+node dist/cli.js index --db bookmarks-content.db bookmarks_merged.html --limit 10 --use-browser
+```
+
+### Search the local full-text index
+
+```bash
+node dist/cli.js search-index --db bookmarks-content.db "model context protocol"
+```
+
+### Inspect and visualize
+
+```bash
+node dist/cli.js stats bookmarks_merged.html
+node dist/cli.js tree bookmarks_merged.html --depth 4
+node dist/cli.js browser-check
+node dist/cli.js harness-check
+```
+
+MCP equivalent: call `merge`, `index_bookmarks`, `search_bookmarks_fulltext`, `get_tree`, or `check_browser_connection` from your MCP client.
+
+---
+
 ## ✨ Features
 
 | Feature | Description |
@@ -223,6 +288,19 @@ Then call `extract_content`:
 
 ---
 
+## 📏 Sorter Rules and Agent Prompt
+
+This repository includes the rulebook and sorter-agent prompt that define how the taxonomy should behave:
+
+- [`docs/BOOKMARK_RULES.md`](docs/BOOKMARK_RULES.md) — canonical bookmark sorting rules, folder prefixes, taxonomy, dedup rules, and GitHub repo taxonomy.
+- [`docs/BOOKMARK_SORTER_AGENT.md`](docs/BOOKMARK_SORTER_AGENT.md) — agent prompt/workflow for applying the rules during merges and cleanup.
+- [`SKILL.md`](SKILL.md) — reusable agent skill for Claude/opencode.
+- [`.opencode/opencode.json`](.opencode/opencode.json) — project-local opencode MCP + skill configuration.
+
+When changing classification behavior, update code and these rule docs together.
+
+---
+
 ## 🏗️ Architecture
 
 ```text
@@ -233,10 +311,12 @@ src/index.ts
    ├─ parser.ts          Netscape bookmark HTML parser
    ├─ classifier.ts      URL normalization, dedup, taxonomy routing
    ├─ renderer.ts        Browser HTML output, SVG icons, domain grouping
-   ├─ content-store.ts   SQLite + FTS5 index
-   ├─ index-manager.ts   Batch indexing orchestration
-   ├─ content-extractor.ts offline/public extraction
-   └─ browser-bridge.ts  Chrome DevTools Protocol open/read/screenshot
+    ├─ content-store.ts   SQLite + FTS5 index
+    ├─ index-manager.ts   Batch indexing orchestration
+    ├─ content-extractor.ts offline/public extraction
+    ├─ pdf-parser.ts      PDF text extraction helpers
+    ├─ browser-importers.ts Chromium bookmark JSON parser
+    └─ browser-bridge.ts  Chrome DevTools Protocol open/read/screenshot
 ```
 
 ---
@@ -279,7 +359,9 @@ AI-Bookmark-MCP/
 ├── SKILL.md
 ├── docs/
 │   ├── API.md
-│   └── MCP_CONFIG.md
+│   ├── MCP_CONFIG.md
+│   ├── BOOKMARK_RULES.md
+│   └── BOOKMARK_SORTER_AGENT.md
 ├── package.json
 ├── tsconfig.json
 ├── src/
@@ -303,13 +385,13 @@ AI-Bookmark-MCP/
 
 ## 🛣️ Roadmap
 
-- [ ] Wire browser extraction into `index_bookmarks` via `useBrowser`.
-- [ ] Add browser-harness subprocess adapter.
-- [ ] Add PDF extraction and real page offsets.
-- [ ] Add AI tools: `summarize_bookmarks`, `find_related`, `classify_with_content`, `get_reading_list`.
-- [ ] Add Chrome/Brave/Edge native bookmark JSON importers.
-- [ ] Add CI workflow for build/test.
-- [ ] Publish package to npm.
+- [x] Wire browser extraction into `index_bookmarks` via `useBrowser`.
+- [x] Add browser-harness subprocess adapter/status check.
+- [x] Add PDF extraction with approximate page offsets.
+- [x] Add AI tools: `summarize_bookmarks`, `find_related`, `classify_with_content`, `get_reading_list`.
+- [x] Add Chrome/Brave/Edge native bookmark JSON importers.
+- [x] Add CI workflow for build/test.
+- [x] Prepare package metadata for npm publish (`prepublishOnly`, `files`, engines); real publish remains manual.
 
 ---
 

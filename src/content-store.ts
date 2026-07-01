@@ -125,6 +125,25 @@ export class ContentStore {
     return row ? mapContentRow(row as ContentRow) : undefined;
   }
 
+  getContentsByUrls(urls: string[]): BookmarkContent[] {
+    return urls.map((url) => this.getContentByUrl(url)).filter((item): item is BookmarkContent => Boolean(item));
+  }
+
+  listRecentContent(limit = 100): BookmarkContent[] {
+    const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 1000);
+    const rows = this.db.prepare(`
+      SELECT b.url, b.normalized AS normalizedUrl, b.title, b.folder_path AS folderPath, b.domain,
+             f.content, b.content_type AS contentType, b.page_count AS pageCount,
+             b.page_offsets AS pageOffsets, b.http_status AS httpStatus, b.is_dead AS isDead,
+             b.date_indexed AS dateIndexed
+      FROM bookmarks b
+      JOIN content_fts f ON f.url = b.url
+      ORDER BY b.date_indexed DESC NULLS LAST, b.updated_at DESC
+      LIMIT ?
+    `).all(safeLimit) as ContentRow[];
+    return rows.map(mapContentRow);
+  }
+
   getContentRange(url: string, startPage: number, endPage: number): { content: string; offsets: PageOffset[] } | undefined {
     const item = this.getContentByUrl(url);
     if (!item) return undefined;

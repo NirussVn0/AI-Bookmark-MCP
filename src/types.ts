@@ -25,6 +25,9 @@ export interface ExtractOptions {
   offlineOnly?: boolean;
   fetchPublic?: boolean;
   useBrowser?: boolean;
+  browserHost?: string;
+  browserPort?: number;
+  waitMs?: number;
   timeoutMs?: number;
 }
 

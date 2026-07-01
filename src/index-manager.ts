@@ -20,7 +20,15 @@ export async function indexBookmarksFromFile(filePath: string, dbPath: string, o
           result.skipped += 1;
           continue;
         }
-        const extracted = await extractFromBookmark(bookmark, { offlineOnly: options.offlineOnly ?? true, fetchPublic: options.fetchPublic, timeoutMs: options.timeoutMs });
+        const extracted = await extractFromBookmark(bookmark, {
+          offlineOnly: options.offlineOnly ?? !options.useBrowser,
+          fetchPublic: options.fetchPublic,
+          useBrowser: options.useBrowser,
+          browserHost: options.browserHost,
+          browserPort: options.browserPort,
+          waitMs: options.waitMs,
+          timeoutMs: options.timeoutMs,
+        });
         store.indexBookmarkContent(extracted);
         result.indexed += 1;
       } catch (error) {

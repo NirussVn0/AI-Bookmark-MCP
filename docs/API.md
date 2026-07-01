@@ -10,6 +10,7 @@ All tools return MCP text content. Structured tools generally return pretty-prin
 - `filePath`, `inputFile`, and `outputFile` refer to local filesystem paths.
 - `dbPath` is optional. If omitted, the server uses `bookmarks-content.db` relative to the server process working directory.
 - Browser tools require Chrome/Chromium DevTools Protocol at `host:port`, default `localhost:9222`.
+- Network/public fetching, browser extraction, and browser-harness checks are opt-in.
 
 ---
 
@@ -190,7 +191,11 @@ Input:
   "limit": 100,
   "force": false,
   "fetchPublic": false,
-  "offlineOnly": true
+  "offlineOnly": true,
+  "useBrowser": false,
+  "browserHost": "localhost",
+  "browserPort": 9222,
+  "waitMs": 3000
 }
 ```
 
@@ -205,8 +210,12 @@ Fields:
 | `force` | boolean | `false` | Re-index already indexed URLs |
 | `fetchPublic` | boolean | `false` | Opt into public network fetching |
 | `offlineOnly` | boolean | `true` | Deterministic metadata-only indexing |
+| `useBrowser` | boolean | `false` | Extract visible DOM text via Chrome CDP. Failures are recorded per URL and do not crash the batch. |
+| `browserHost` | string | `localhost` | CDP host for browser extraction |
+| `browserPort` | number | `9222` | CDP port for browser extraction |
+| `waitMs` | number | `3000` | Extra page settle time for browser extraction |
 
-Offline mode stores title, URL, normalized URL, folder, domain, and classification. Public fetch mode uses `fetch` and rough HTML stripping. Browser-authenticated indexing is not yet wired into this tool.
+Offline mode stores title, URL, normalized URL, folder, domain, and classification. Public fetch mode uses `fetch` and rough HTML stripping. PDF responses are parsed with `pdf-parse`; exact page boundaries are not exposed reliably, so page offsets are approximate even splits across extracted text. Browser mode uses Chrome CDP and stores `contentType: text/html; mode=browser-cdp` with a one-page offset.
 
 Returns JSON:
 
@@ -331,7 +340,29 @@ Current offline/public extraction creates one page offset. Real PDF page offsets
 
 ---
 
+## AI preparation tools
+
+- `summarize_bookmarks`: input `dbPath?`, `urls[]`, `maxChars?`; returns indexed content blocks ready for model summarization and never calls an LLM.
+- `find_related`: input `topic`, `dbPath?`, `limit?`, `include_content?`; runs FTS and applies lightweight folder/domain scoring.
+- `classify_with_content`: input `dbPath?`, `url`; returns a suggested folder, confidence, and reason from indexed title/content plus `classifyBookmark`.
+- `get_reading_list`: input `dbPath?`, `topic`, `limit?`, `unread_only?`; returns top content matches with `estimated_read_time`. Reading status is not implemented, so `unread_only` is acknowledged and ignored.
+
+---
+
+## Browser import tools
+
+- `import_chromium_json`: input `filePath`, `limit?`; parses a Chrome/Brave/Edge native `Bookmarks` JSON file into bookmark records.
+- `detect_browser_bookmark_paths`: returns likely native bookmark JSON paths and `exists` flags without reading browser files.
+
+---
+
 ## Browser/CDP tools
+
+### `check_browser_harness`
+
+Checks whether an optional browser-harness command is present. It is not required for tests or normal MCP operation. Extraction through browser-harness is documented as unavailable because no stable subprocess CLI contract is assumed; use CDP tools instead.
+
+---
 
 ### `check_browser_connection`
 

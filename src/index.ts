@@ -9,6 +9,8 @@ import { pathToFileURL } from "node:url";
 import * as z from "zod";
 
 import { BrowserBridge } from "./browser-bridge.js";
+import { checkBrowserHarness } from "./browser-harness-adapter.js";
+import { detectBrowserBookmarkPaths, parseChromiumBookmarksJson } from "./browser-importers.js";
 import { cleanTitle, classifyBookmark, dedupBookmarks, domainOf, isTrash, normalizeUrl } from "./classifier.js";
 import { ContentStore } from "./content-store.js";
 import { indexBookmarksFromFile } from "./index-manager.js";
@@ -262,6 +264,17 @@ function withContentStore<T>(dbPath: string | undefined, fn: (store: ContentStor
   }
 }
 
+function estimatedReadTime(content: string): number {
+  const words = content.match(/[\p{L}\p{N}_-]+/gu)?.length ?? 0;
+  return Math.max(1, Math.ceil(words / 220));
+}
+
+function keywordReason(text: string, topic: string): string {
+  const terms = topic.toLowerCase().match(/[\p{L}\p{N}_-]+/gu) ?? [];
+  const matched = terms.filter((term) => text.toLowerCase().includes(term)).slice(0, 8);
+  return matched.length ? `Matched indexed terms: ${matched.join(", ")}` : "Used title/url/folder/domain classifier fallback.";
+}
+
 export function createBookmarkMcpServer(): McpServer {
   const server = new McpServer({ name: "bookmark-mcp", version: "1.0.0" });
 
@@ -342,9 +355,13 @@ export function createBookmarkMcpServer(): McpServer {
       force: z.boolean().optional().default(false),
       fetchPublic: z.boolean().optional().default(false),
       offlineOnly: z.boolean().optional().default(true),
+      useBrowser: z.boolean().optional().default(false),
+      browserHost: z.string().optional().default("localhost"),
+      browserPort: z.number().int().positive().max(65535).optional().default(9222),
+      waitMs: z.number().int().min(0).max(60000).optional().default(3000),
     },
-  }, async ({ filePath, dbPath, folder, limit, force, fetchPublic, offlineOnly }) => {
-    const result = await indexBookmarksFromFile(filePath, resolveDbPath(dbPath), { folder, limit, force, fetchPublic, offlineOnly });
+  }, async ({ filePath, dbPath, folder, limit, force, fetchPublic, offlineOnly, useBrowser, browserHost, browserPort, waitMs }) => {
+    const result = await indexBookmarksFromFile(filePath, resolveDbPath(dbPath), { folder, limit, force, fetchPublic, offlineOnly, useBrowser, browserHost, browserPort, waitMs });
     return textResult(JSON.stringify({ dbPath: resolveDbPath(dbPath), ...result }, null, 2));
   });
 
@@ -390,6 +407,52 @@ export function createBookmarkMcpServer(): McpServer {
     return textResult(JSON.stringify({ url: item.url, start_page, end_page, offsets: range.offsets, content: range.content }, null, 2));
   }));
 
+  server.registerTool("summarize_bookmarks", {
+    description: "Return indexed bookmark contents for a caller/model to summarize. Does not call an LLM.",
+    inputSchema: { dbPath: z.string().optional(), urls: z.array(z.string()).min(1), maxChars: z.number().int().positive().max(1_000_000).optional().default(20000) },
+  }, async ({ dbPath, urls, maxChars }) => withContentStore(dbPath, (store) => {
+    const items = store.getContentsByUrls(urls).map((item) => ({ url: item.url, title: item.title, folderPath: item.folderPath, domain: item.domain, content: item.content.slice(0, maxChars), truncated: item.content.length > maxChars }));
+    return textResult(JSON.stringify({ count: items.length, items }, null, 2));
+  }));
+
+  server.registerTool("find_related", {
+    description: "Find indexed bookmarks related to a topic using FTS plus folder/domain scoring.",
+    inputSchema: { topic: z.string(), dbPath: z.string().optional(), limit: z.number().int().positive().max(100).optional().default(20), include_content: z.boolean().optional().default(false) },
+  }, async ({ topic, dbPath, limit, include_content }) => withContentStore(dbPath, (store) => {
+    const fts = store.searchFullText(topic, { limit: Math.min(limit * 3, 100) });
+    const items = fts.map((result) => {
+      const item = store.getContentByUrl(result.url);
+      const haystack = `${result.title} ${result.folderPath} ${result.domain} ${item?.content ?? ""}`;
+      const domainBoost = topic.toLowerCase().includes(result.domain) ? 2 : 0;
+      const folderBoost = keywordReason(result.folderPath, topic).startsWith("Matched") ? 1 : 0;
+      return { ...result, related_score: Math.abs(result.score ?? 0) + domainBoost + folderBoost, ...(include_content && item ? { content: item.content.slice(0, 5000) } : {}) };
+    }).sort((a, b) => b.related_score - a.related_score).slice(0, limit);
+    return textResult(JSON.stringify({ topic, count: items.length, items }, null, 2));
+  }));
+
+  server.registerTool("classify_with_content", {
+    description: "Suggest a folder for an indexed URL using title/content keywords plus the deterministic classifier.",
+    inputSchema: { dbPath: z.string().optional(), url: z.string() },
+  }, async ({ dbPath, url }) => withContentStore(dbPath, (store) => {
+    const item = store.getContentByUrl(url);
+    if (!item) return textResult(`No indexed content found for URL: ${url}`);
+    const bookmark = { title: item.title, url: item.url, folderPath: item.folderPath };
+    const folder = classifyBookmark(bookmark);
+    const reason = keywordReason(`${item.title} ${item.url} ${item.folderPath} ${item.content.slice(0, 10000)}`, `${item.title} ${item.domain}`);
+    return textResult(JSON.stringify({ url: item.url, suggested_folder: folder, confidence: reason.startsWith("Matched") ? 0.75 : 0.55, reason }, null, 2));
+  }));
+
+  server.registerTool("get_reading_list", {
+    description: "Return top indexed content results for a topic with estimated reading time. unread_only is accepted but not implemented.",
+    inputSchema: { dbPath: z.string().optional(), topic: z.string(), limit: z.number().int().positive().max(100).optional().default(20), unread_only: z.boolean().optional().default(false) },
+  }, async ({ dbPath, topic, limit, unread_only }) => withContentStore(dbPath, (store) => {
+    const results = store.searchFullText(topic, { limit }).map((result) => {
+      const item = store.getContentByUrl(result.url);
+      return { ...result, estimated_read_time: estimatedReadTime(item?.content ?? ""), contentType: item?.contentType };
+    });
+    return textResult(JSON.stringify({ topic, note: unread_only ? "unread_only requested but reading status is not implemented; returning all matches." : undefined, count: results.length, items: results }, null, 2));
+  }));
+
   server.registerTool("check_browser_connection", {
     description: "Check whether Chrome/Chromium is available through the Chrome DevTools Protocol remote debugging port.",
     inputSchema: {
@@ -400,6 +463,24 @@ export function createBookmarkMcpServer(): McpServer {
     const bridge = new BrowserBridge({ host, port });
     return textResult(JSON.stringify(await bridge.checkConnection(), null, 2));
   });
+
+  server.registerTool("check_browser_harness", {
+    description: "Check whether an optional browser-harness CLI is available. It is not required for Bookmark MCP.",
+    inputSchema: {},
+  }, async () => textResult(JSON.stringify(checkBrowserHarness(), null, 2)));
+
+  server.registerTool("import_chromium_json", {
+    description: "Parse a Chrome/Brave/Edge Bookmarks JSON file and return normalized bookmark records.",
+    inputSchema: { filePath: z.string(), limit: z.number().int().positive().max(100000).optional() },
+  }, async ({ filePath, limit }) => {
+    const bookmarks = parseChromiumBookmarksJson(fs.readFileSync(filePath, "utf-8"));
+    return textResult(JSON.stringify({ count: bookmarks.length, bookmarks: typeof limit === "number" ? bookmarks.slice(0, limit) : bookmarks }, null, 2));
+  });
+
+  server.registerTool("detect_browser_bookmark_paths", {
+    description: "Return likely Chrome/Brave/Edge native bookmark JSON paths and whether they exist. Does not read them.",
+    inputSchema: {},
+  }, async () => textResult(JSON.stringify(detectBrowserBookmarkPaths(), null, 2)));
 
   server.registerTool("open_in_browser", {
     description: "Open a URL in Chrome via CDP, optionally extract visible DOM text and/or capture a screenshot. Tabs close by default.",
