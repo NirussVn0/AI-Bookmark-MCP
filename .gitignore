@@ -11,3 +11,5 @@ dist/
 npm-debug.log*
 *.tmp
 coverage/
+__pycache__/
+*.pyc

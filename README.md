@@ -23,6 +23,8 @@ Turn messy browser bookmark exports into a clean knowledge base: classify, merge
 
 Use these commands when you want AI Bookmark MCP to behave like a normal CLI sorter, not only an MCP server.
 
+> **Canonical path:** TypeScript is the source of truth. `src/classifier.ts`, `src/index.ts`, and `src/cli.ts` power both the MCP tools and the CLI. Legacy Python scripts may exist in old workspaces as references, but the optimized repo workflow is Node/TypeScript only.
+
 ### Merge 2 bookmark files
 
 ```bash

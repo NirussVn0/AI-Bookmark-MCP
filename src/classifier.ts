@@ -216,6 +216,92 @@ function containsAny(text: string, needles: string[]): boolean {
   return needles.some((needle) => text.includes(needle));
 }
 
+type MultiRule = { needles: string[]; path: string };
+
+function matchMultiRule(text: string, rules: MultiRule[]): string | undefined {
+  for (const rule of rules) {
+    if (containsAny(text, rule.needles)) return rule.path;
+  }
+  return undefined;
+}
+
+/**
+ * Edge-era folder names are messy but carry useful intent. Keep this as data
+ * so the TypeScript classifier remains the single source of truth while still
+ * learning from the old browser structure (#ARCHIVE, #CODER/SOUSCE CODE, etc.).
+ */
+const EDGE_FOLDER_CONTEXT_RULES: MultiRule[] = [
+  { needles: ["crack file", "cr4ck file"], path: "#__TOOLS/##CRACK_ACTIVATION/###SOFTWARE" },
+  { needles: ["document", "docs learn"], path: "#__STUDY/##DOCS_LIBRARY/###GENERAL_DOCS" },
+  { needles: ["ebook", "sách"], path: "#__MEDIA/##BOOK_NOVEL/###LIGHT_NOVEL_EBOOK" },
+  { needles: ["sousce kho", "source kho", "khoá học"], path: "#__CODER/##LEARNING/###TUTORIALS" },
+  { needles: ["developer sousce", "dowload sousce", "git code", "sousce code", "source code", "find code"], path: "#__CODER/##GITHUB_REPOS/###WEB_APP_API" },
+  { needles: ["sousce tool", "source tool", "tool code", "dev tool", "toolkit"], path: "#__CODER/##DEV_WORKBENCH/###OTHER_DEV" },
+  { needles: ["sousce learn", "source learn", "learn code", "code learning", "tutorial project", "tutorial code"], path: "#__CODER/##LEARNING/###TUTORIALS" },
+  { needles: ["sousce mmo", "source mmo", "free download", "download doc"], path: "#__TOOLS/##DOWNLOAD_CONVERT/###MEDIA_FILE" },
+  { needles: ["document/api", "api sousce", "api code", "wiki code"], path: "#__CODER/##DOCS_FRAMEWORKS/###API_LIBS" },
+  { needles: ["hacked", "hack code", "hack tool"], path: "#__CODER/##SECURITY_DEV/###RESEARCH" },
+  { needles: ["profile author"], path: "#__CODER/##GITHUB_PROFILES" },
+  { needles: ["postcast", "podcast", "news", "post"], path: "#__MEDIA/##MUSIC_STREAM/###MUSIC_VIDEO" },
+  { needles: ["workfolder", "work folder", "work manager"], path: "#__WORK/##PROJECTS/###DASHBOARDS_DOCS" },
+  { needles: ["host", "domain", "vps", "deploy", "server dev", "sevrer dev"], path: "#__CODER/##INFRA_HOSTING/###CLOUD_DEPLOY" },
+  { needles: ["framework", "dev, framework"], path: "#__CODER/##DOCS_FRAMEWORKS/###API_LIBS" },
+  { needles: ["test code", "exam code", "test case"], path: "#__CODER/##LEARNING/###COMPETITIVE" },
+  { needles: ["python and php", "java and c#", "html code", "web code", "web project", "web edit", "web games"], path: "#__CODER/##GITHUB_REPOS/###WEB_APP_API" },
+  { needles: ["game dev", "game in code", "code games", "unity", "shader"], path: "#__CODER/##GITHUB_REPOS/###GAME_DEV_STEAM" },
+  { needles: ["automate"], path: "#__TOOLS/##PRODUCTIVITY_AUTOMATION/###TASK_AUTOMATION" },
+  { needles: ["upfile", "up file", "upload", "covert", "convert"], path: "#__TOOLS/##DOWNLOAD_CONVERT/###MEDIA_FILE" },
+  { needles: ["temp", "temporary"], path: "#__TOOLS/##PRIVACY_TEMP/###TEMP_MAIL_SMS" },
+  { needles: ["customize", "custom linux", "custom themes"], path: "#__TOOLS/##SYSTEM_CUSTOMIZE/###THEMES_RICING" },
+  { needles: ["searching tool", "find"], path: "#__TOOLS/##SEARCH_OSINT/###REVERSE_IMAGE_FACE" },
+  { needles: ["crack tool", "cr steams", "crack games", "leak web"], path: "#__TOOLS/##CRACK_ACTIVATION/###STEAM_GAME" },
+  { needles: ["ai tool", "chat ai"], path: "#__AI/##CHAT/###CORE_CHAT" },
+  { needles: ["editor ai", "img ai", "vid ai", "voice edit", "sounds ai"], path: "#__AI/##CREATIVE/###EDITING" },
+  { needles: ["search ai"], path: "#__AI/##RESEARCH_SEARCH/###AI_SEARCH" },
+  { needles: ["dev,web ai", "code ai"], path: "#__AI/##DEV_AGENT/###AI_IDE_CODING" },
+  { needles: ["custom more ai", "bot", "bot discord"], path: "#__AI/##DEV_AGENT/###AGENT_FRAMEWORKS" },
+  { needles: ["train ai", "learn ai"], path: "#__AI/##RESEARCH_SEARCH/###LEARN_TRAIN" },
+  { needles: ["image download", "img download", "svg download"], path: "#__DESIGN/##3D_GAME_ASSET/###STOCK_ICONS" },
+  { needles: ["wallpaper"], path: "#__DESIGN/##STYLE_SYSTEM/###WALLPAPER" },
+  { needles: ["font", "color"], path: "#__DESIGN/##STYLE_SYSTEM/###FONT_COLOR" },
+  { needles: ["social editor"], path: "#__TOOLS/##SOCIAL_UTILS/###TELEGRAM_DISCORD" },
+  { needles: ["chilling", "book, maga", "anime-manga", "anime", "manga"], path: "#__MEDIA/##ANIME_MANGA/###MANGA_READ" },
+  { needles: ["referent idiea", "reference idea", "web xem xét", "web art", "web designer"], path: "#__DESIGN/##UI_UX/###INSPIRATION_TOOLS" },
+  { needles: ["forum code", "forum learn"], path: "#__CODER/##LEARNING/###TUTORIALS" },
+  { needles: ["flow marketing", "marketing", "job", "mmo web"], path: "#__SHOP/##WORK_MARKET/###FREELANCE_CREATOR" },
+  { needles: ["11 class", "sách 10"], path: "#__STUDY/##SCHOOL_VN/###THPT_DGNL" },
+  { needles: ["learn english", "practice eng"], path: "#__STUDY/##ENGLISH/###IELTS_PRONUNCIATION" },
+  { needles: ["dev learn"], path: "#__CODER/##LEARNING/###TUTORIALS" },
+];
+
+const EDGE_DOMAIN_CATCHALL_RULES: MultiRule[] = [
+  { needles: ["hvaonline.net", "infosecinstitute.com", "hybrid-analysis.com", "qualys.com", "recordedfuture.com"], path: "#__TOOLS/##SECURITY_ANALYSIS/###MALWARE_IP" },
+  { needles: ["mikotech.vn", "vietnix.vn", "fileformat.info", "datastackhub.com", "docs.advntr.dev"], path: "#__CODER/##DOCS_FRAMEWORKS/###API_LIBS" },
+  { needles: ["codepal.ai", "codeconvert.ai", "platform.openai.com/api-keys"], path: "#__AI/##DEV_AGENT/###AI_IDE_CODING" },
+  { needles: ["jinkimh.github.io", "codelearn.io", "racket-lang.org", "homeworkify", "techtarget.com"], path: "#__CODER/##LEARNING/###TUTORIALS" },
+  { needles: ["xyzcoder.github.io", "javadecompilers.com", "decompiler.com"], path: "#__CODER/##SECURITY_DEV/###RESEARCH" },
+  { needles: ["docpose.com", "mega.nz", "drive.usercontent.google.com"], path: "#__TOOLS/##DOWNLOAD_CONVERT/###MEDIA_FILE" },
+  { needles: ["greasyfork.org", "formatter.org", "regex101.com"], path: "#__CODER/##DEV_WORKBENCH/###OTHER_DEV" },
+  { needles: ["openasar.dev", "iobit.com"], path: "#__CODER/##GITHUB_REPOS/###SYSTEM_OS_UTILS" },
+  { needles: ["phong28zk.me", "stormx.works", "xuankhoatu.com", "vaaq.dev", "charat.me"], path: "#__DESIGN/##UI_UX/###INSPIRATION_TOOLS" },
+  { needles: ["spectrecreations.com", "unity.com/roadmap"], path: "#__CODER/##GITHUB_REPOS/###GAME_DEV_STEAM" },
+  { needles: ["cloud.stormx.space", "litespeedtech.com", "falixnodes", "falix"], path: "#__CODER/##INFRA_HOSTING/###CLOUD_DEPLOY" },
+  { needles: ["webintoapp.com", "bolt.new", "carrd.co"], path: "#__AI/##DEV_AGENT/###APP_BUILDER" },
+  { needles: ["hunyuan.tencent.com", "godmodeai"], path: "#__AI/##CREATIVE/###IMAGE_GEN" },
+  { needles: ["upstash.com"], path: "#__CODER/##GITHUB_REPOS/###DATA_DEVOPS" },
+  { needles: ["streamerfreebies", "twitchoverlay", "discadia.com"], path: "#__DESIGN/##3D_GAME_ASSET/###STOCK_ICONS" },
+  { needles: ["blinkist.com"], path: "#__MEDIA/##BOOK_NOVEL/###LIGHT_NOVEL_EBOOK" },
+  { needles: ["clickup.com", "hubspot.com"], path: "#__TOOLS/##PRODUCTIVITY_AUTOMATION/###TASK_BOARD" },
+  { needles: ["episoden.com", "gliglish.com", "languagereactor.com", "dautruonganhngu", "prepedu.com"], path: "#__STUDY/##ENGLISH/###IELTS_PRONUNCIATION" },
+  { needles: ["reddit.com/r/piracy"], path: "#__TOOLS/##CRACK_ACTIVATION/###SOFTWARE" },
+  { needles: ["nghiengacha.com", "pcmarket.vn"], path: "#__SHOP/##MARKETPLACE/###SHOPPING" },
+  { needles: ["vietnamworks.com", "whop.com"], path: "#__SHOP/##WORK_MARKET/###FREELANCE_CREATOR" },
+  { needles: ["screeps.com", "quangtrioj"], path: "#__CODER/##LEARNING/###COMPETITIVE" },
+  { needles: ["yougame.biz"], path: "#__TOOLS/##CRACK_ACTIVATION/###STEAM_GAME" },
+  { needles: ["vidyard.com"], path: "#__AI/##CREATIVE/###VIDEO_GEN" },
+  { needles: ["bing.com/search", "google.com/search"], path: "#__TOOLS/##GENERAL_UTILS/###GENERAL" },
+];
+
 /**
  * Legacy/quick classifier approximating the original Python merge_bookmarks.py.
  * The v2 archive router below uses this as its fallback input, just like
@@ -253,7 +339,7 @@ export function routeGithub(title: string, url: string): string {
   if (containsAny(text, ["minecraft", "bedrock", "resourcepack", "resource-pack", "java2bedrock", "mcrpx", "geyser", "spigot", "bukkit", "server-unpacker", "texture", "lavamusic", "slimefun", "bossshop"])) return "#__CODER/##GITHUB_REPOS/###MINECRAFT";
   if (containsAny(text, ["rat", "stealer", "malware", "backdoor", "phishing", "pentest", "antidbg", "anti-debugging", "yara", "ioc", "fatrat", "browserdataextractor", "sms-bomber", "hacking", "discord-hack", "tgbot-verify"])) return "#__CODER/##GITHUB_REPOS/###SECURITY_RE";
   if (containsAny(text, ["activation", "activator", "cursor-vip", "cursor-free-vip", "free-augment", "jetbra", "idm", "dlc-unlocker", "manifestdownloader", "manifest-updater", "depot", "koalageddon", "smokeapi", "microsoft-activation", "steam"])) return "#__CODER/##GITHUB_REPOS/###CRACK_ACTIVATION";
-  if (containsAny(text, ["agent", "llm", "openai", "ai-", "ai_", "suna", "superagi", "agentgpt", "browser-use", "stagehand", "mcp", "tts", "voice", "rvc", "whisper", "lancedb", "airi", "wan2", "hunyuan", "pixel-gpt", "zonos", "gpt-prompt", "sora-extend", "sora-2", "modelcontextprotocol"])) return "#__CODER/##GITHUB_REPOS/###AI_AGENT_LLM";
+  if (containsAny(text, ["agent", "llm", "openai", "ai-", "ai_", "suna", "superagi", "agentgpt", "browser-use", "stagehand", "mcp", "tts", "voice", "rvc", "whisper", "lancedb", "airi", "wan2", "hunyuan", "pixel-gpt", "zonos", "gpt-prompt", "sora-extend", "sora-2", "modelcontextprotocol", "pipeline", "hcm"])) return "#__CODER/##GITHUB_REPOS/###AI_AGENT_LLM";
   if (containsAny(text, ["dotfiles", "hypr", "rofi", "sddm", "catppuccin", "shell", "winutil", "casaos", "kernelos", "tab-manager", "braintool", "opentabletdriver", "kasmvnc", "zebar", "theme-manager", "uniextract", "theia"])) return "#__CODER/##GITHUB_REPOS/###SYSTEM_OS_UTILS";
   if (containsAny(text, ["react", "next", "tailwind", "prisma", "eslint", "ui", "website", "web", "django", "fastapi", "zalo", "api", "keygen"])) return "#__CODER/##GITHUB_REPOS/###WEB_APP_API";
   if (containsAny(text, ["unity", "game", "shader", "itch", "steam", "depot", "koalageddon", "smokeapi"])) return "#__CODER/##GITHUB_REPOS/###GAME_DEV_STEAM";
@@ -298,6 +384,7 @@ export function routeArchiveBookmark(bm: Bookmark): string {
   const url = bm.url || "";
   const t = title.toLowerCase();
   const u = normalizeUrl(url).toLowerCase();
+  const fp = (bm.folderPath || "").toLowerCase();
   const old = legacyClassifyBookmark(bm);
 
   if (containsAny(u, ["messenger.com", "facebook.com", "tiktok", "zalo", "pinterest", "douyin", "xiaohongshu", "bilibili", "instagram.com", "pixiv", "discord.com", "azarlive"])) return "#__SOCIAL/##SOCIAL_APPS/###CHAT_FEED";
@@ -317,6 +404,10 @@ export function routeArchiveBookmark(bm: Bookmark): string {
 
   if (u.includes("github.com")) return routeGithub(title, url);
   if (u.includes("drive.google.com") || u.includes("docs.google.com")) return routeGoogleDrive(title, url);
+  const edgeDomainRoute = matchMultiRule(u, EDGE_DOMAIN_CATCHALL_RULES);
+  if (edgeDomainRoute) return edgeDomainRoute;
+  const edgeFolderRoute = matchMultiRule(fp, EDGE_FOLDER_CONTEXT_RULES);
+  if (edgeFolderRoute) return edgeFolderRoute;
   if (old.startsWith("#__AI")) return routeAi(title, url, old);
 
   if (old.startsWith("#__CODER")) {
