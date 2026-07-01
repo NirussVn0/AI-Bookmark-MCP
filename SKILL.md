@@ -69,7 +69,7 @@ Use:
 Rules:
 
 - Prefer `merge` for multiple Netscape HTML exports.
-- Keep `groupByDomain: true` unless the user asks for a flat folder.
+- Keep `groupByDomain: false` by default. `Other Bookmarks` is a semantic archive, not a website/domain bucket. Use `groupByDomain: true` only for audit/debugging repeated domains.
 - Verify output has `Bookmarks bar`, `Other Bookmarks`, and SVG folder icons.
 
 ### User wants AI lookup across saved knowledge

@@ -56,7 +56,7 @@ function cleanValidDedup(bookmarks: Bookmark[]): { unique: Bookmark[]; trashRemo
   return { unique, trashRemoved, invalidRemoved, duplicatesRemoved: duplicates };
 }
 
-export function buildClassifiedTree(bookmarks: Bookmark[], shouldGroupByDomain = true): TreeNode {
+export function buildClassifiedTree(bookmarks: Bookmark[], shouldGroupByDomain = false): TreeNode {
   const root = createTree();
   root.children.set("Bookmarks bar", { title: "Bookmarks bar", children: new Map(), links: [] });
   root.children.set("Other Bookmarks", { title: "Other Bookmarks", children: new Map(), links: [] });
@@ -156,7 +156,7 @@ function quickPath(bm: Bookmark): string | undefined {
   return undefined;
 }
 
-export function mergeBookmarkFiles(inputFiles: string[], outputFile: string, shouldGroupByDomain = true): MergeResult {
+export function mergeBookmarkFiles(inputFiles: string[], outputFile: string, shouldGroupByDomain = false): MergeResult {
   let allBookmarks: Bookmark[] = [];
   const fileStats: string[] = [];
 
@@ -174,7 +174,7 @@ export function mergeBookmarkFiles(inputFiles: string[], outputFile: string, sho
   return { outputFile, totalInput, trashRemoved, invalidRemoved, duplicatesRemoved, finalCount: unique.length, fileStats };
 }
 
-export function exportBookmarks(inputFile: string, outputFile: string, format: ExportFormat, shouldGroupByDomain = true): number {
+export function exportBookmarks(inputFile: string, outputFile: string, format: ExportFormat, shouldGroupByDomain = false): number {
   const { bookmarks } = readBookmarkFile(inputFile);
   const { unique } = cleanValidDedup(bookmarks);
 
@@ -316,7 +316,7 @@ export function createBookmarkMcpServer(): McpServer {
     inputSchema: {
       inputFiles: z.array(z.string()).min(1),
       outputFile: z.string(),
-      groupByDomain: z.boolean().optional().default(true),
+      groupByDomain: z.boolean().optional().default(false),
     },
   }, async ({ inputFiles, outputFile, groupByDomain: shouldGroupByDomain }) => textResult(formatMergeResult(mergeBookmarkFiles(inputFiles, outputFile, shouldGroupByDomain))));
 
@@ -326,7 +326,7 @@ export function createBookmarkMcpServer(): McpServer {
       inputFile: z.string(),
       outputFile: z.string(),
       format: z.enum(["html", "json", "csv", "markdown"]).default("html"),
-      groupByDomain: z.boolean().optional().default(true),
+      groupByDomain: z.boolean().optional().default(false),
     },
   }, async ({ inputFile, outputFile, format, groupByDomain: shouldGroupByDomain }) => {
     const count = exportBookmarks(inputFile, outputFile, format, shouldGroupByDomain);
@@ -546,7 +546,7 @@ export function createBookmarkMcpServer(): McpServer {
     const { links, folders } = readBookmarkFile(filePath);
     return textResult(`Total bookmarks: ${links}\nTotal folders: ${folders}`);
   });
-  server.registerTool("export_bookmarks", { description: "Alias for export.", inputSchema: { inputFile: z.string(), outputFile: z.string(), format: z.enum(["html", "json", "csv", "markdown"]).default("html"), groupByDomain: z.boolean().optional().default(true) } }, async ({ inputFile, outputFile, format, groupByDomain: shouldGroupByDomain }) => {
+  server.registerTool("export_bookmarks", { description: "Alias for export.", inputSchema: { inputFile: z.string(), outputFile: z.string(), format: z.enum(["html", "json", "csv", "markdown"]).default("html"), groupByDomain: z.boolean().optional().default(false) } }, async ({ inputFile, outputFile, format, groupByDomain: shouldGroupByDomain }) => {
     const count = exportBookmarks(inputFile, outputFile, format, shouldGroupByDomain);
     return textResult(`Exported ${count} bookmarks to ${outputFile} as ${format}.`);
   });

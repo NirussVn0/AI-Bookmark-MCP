@@ -101,7 +101,7 @@ Input:
     "E:/bookmark/comet_bookmarks_7_1_26.html"
   ],
   "outputFile": "E:/bookmark/bookmarks_merged.html",
-  "groupByDomain": true
+  "groupByDomain": false
 }
 ```
 
@@ -110,11 +110,12 @@ Behavior:
 - parses all input files
 - cleans titles
 - removes trash/internal URLs
-- normalizes URLs for deduplication
+- normalizes URLs for deduplication; subdomains are preserved (`docs.example.com` != `example.com`)
+- chooses the cleanest concise title when exact normalized URLs collide
 - classifies bookmarks into archive taxonomy
 - writes browser-native HTML with `Bookmarks bar` and `Other Bookmarks`
 - adds SVG emoji folder icons to every folder
-- groups repeated domains inside leaf folders
+- keeps `Other Bookmarks` semantic-first by default; repeated-domain folders are only created when `groupByDomain: true` is explicitly set for audit mode
 
 ---
 
@@ -129,7 +130,7 @@ Input:
   "inputFile": "E:/bookmark/bookmarks_merged.html",
   "outputFile": "E:/bookmark/bookmarks.json",
   "format": "json",
-  "groupByDomain": true
+  "groupByDomain": false
 }
 ```
 

@@ -84,6 +84,14 @@ node dist/cli.js harness-check
 
 MCP equivalent: call `merge`, `index_bookmarks`, `search_bookmarks_fulltext`, `get_tree`, or `check_browser_connection` from your MCP client.
 
+Optional domain audit mode:
+
+```bash
+node dist/cli.js merge --out bookmarks_grouped.html bookmarks_merged.html edge_favorites.html --group-by-domain
+```
+
+Use this only to inspect repeated domains. The normal archive output is semantic-first.
+
 ---
 
 ## ✨ Features
@@ -92,7 +100,7 @@ MCP equivalent: call `merge`, `index_bookmarks`, `search_bookmarks_fulltext`, `g
 |---|---|
 | 🧹 **Smart Merge** | Merge multiple Netscape bookmark HTML exports with URL normalization and deduplication. |
 | 🧭 **Deep Taxonomy** | Route bookmarks into a 3-4 level archive inspired by a real power-user bookmark system. |
-| 🎨 **Beautiful Export** | Generate browser-native HTML with `Bookmarks bar`, `Other Bookmarks`, SVG emoji folder icons, and domain subfolders. |
+| 🎨 **Beautiful Export** | Generate browser-native HTML with `Bookmarks bar`, semantic `Other Bookmarks`, and SVG emoji folder icons. |
 | 🔎 **Metadata Search** | Search by title, URL, domain, and folder path. |
 | 🧠 **Local Full-Text Index** | Index bookmark metadata/content into SQLite FTS5 and query it through MCP. |
 | 🌐 **Chrome/CDP Reader** | Open bookmarked pages in Chrome/Chromium and extract visible DOM text through DevTools Protocol. |
@@ -127,6 +135,8 @@ Bookmarks
 ```
 
 Every folder gets an `ICON="data:image/svg+xml;base64,..."` attribute so imported browser folders are visually scannable.
+
+`Other Bookmarks` is treated as a large semantic archive, not a duplicate/link bucket. Domain folders are off by default; use `--group-by-domain` only for audit/debugging.
 
 ---
 
@@ -240,7 +250,7 @@ Full API examples: [`docs/API.md`](docs/API.md).
     "E:/bookmark/comet_bookmarks_7_1_26.html"
   ],
   "outputFile": "E:/bookmark/bookmarks_merged.html",
-  "groupByDomain": true
+  "groupByDomain": false
 }
 ```
 
@@ -312,7 +322,7 @@ MCP Client
 src/index.ts
    ├─ parser.ts          Netscape bookmark HTML parser
    ├─ classifier.ts      URL normalization, dedup, taxonomy routing
-   ├─ renderer.ts        Browser HTML output, SVG icons, domain grouping
+   ├─ renderer.ts        Browser HTML output and SVG emoji folder icons
     ├─ content-store.ts   SQLite + FTS5 index
     ├─ index-manager.ts   Batch indexing orchestration
     ├─ content-extractor.ts offline/public extraction
@@ -333,7 +343,7 @@ Smoke tests cover:
 
 - parsing and classified merge/export
 - SVG folder icon output
-- domain subfolder grouping
+- semantic archive output by default, with optional domain audit mode
 - v2-style classification examples
 - SQLite FTS5 indexing and search
 - browser bridge connection check, with graceful skip when CDP is unavailable

@@ -447,13 +447,43 @@ export function dedupBookmarks(bookmarks: Bookmark[]): { unique: Bookmark[]; dup
     const existing = seen.get(key);
     if (existing) {
       duplicates++;
-      if (bm.title.length > existing.title.length) {
-        seen.set(key, bm);
-      }
+      seen.set(key, choosePreferredDuplicate(existing, bm));
     } else {
       seen.set(key, bm);
     }
   }
 
   return { unique: [...seen.values()], duplicates };
+}
+
+/**
+ * Prefer the cleanest representative for exact normalized duplicates.
+ * Archive policy: if two bookmarks normalize to the same URL, keep one.
+ * Subdomains are intentionally preserved by normalizeUrl(), so
+ * docs.example.com and example.com are not considered duplicates.
+ */
+function choosePreferredDuplicate(a: Bookmark, b: Bookmark): Bookmark {
+  const scoreA = titleScore(a.title);
+  const scoreB = titleScore(b.title);
+  if (scoreA !== scoreB) return scoreB > scoreA ? b : a;
+  if ((b.icon && !a.icon)) return { ...b };
+  if ((a.icon && !b.icon)) return { ...a };
+  const aDate = Number(a.addDate ?? 0);
+  const bDate = Number(b.addDate ?? 0);
+  return bDate > aDate ? b : a;
+}
+
+function titleScore(title: string): number {
+  const t = cleanTitle(title || "");
+  const lower = t.toLowerCase();
+  if (!t) return 0;
+  if (["home", "index", "untitled", "new tab", "download", "login"].includes(lower)) return 1;
+  let score = 10;
+  if (t.length >= 8 && t.length <= 80) score += 5;
+  if (t.length > 100) score -= 4;
+  if (/[-|:]/.test(t)) score += 1;
+  if (/\b(github|docs|api|tutorial|guide|course|tool|dashboard|roadmap)\b/i.test(t)) score += 2;
+  // Prefer concise descriptive titles over browser-noisy titles.
+  score -= Math.max(0, Math.floor((t.length - 80) / 20));
+  return score;
 }

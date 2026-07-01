@@ -1,5 +1,6 @@
 /**
- * HTML renderer with folder icons and domain subfolders.
+ * HTML renderer with folder icons.
+ * Domain subfolders are an explicit audit mode, not the default archive shape.
  */
 
 import type { Bookmark } from "./parser.js";
@@ -31,7 +32,7 @@ export function addBookmark(root: TreeNode, path: string, bm: Bookmark, titleOve
 }
 
 /**
- * Add domain subfolders within leaf nodes that have 3+ bookmarks from the same domain.
+ * Add optional domain subfolders within leaf nodes that have 3+ bookmarks from the same domain.
  */
 function isDomainFolderName(title: string): boolean {
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i.test(title);

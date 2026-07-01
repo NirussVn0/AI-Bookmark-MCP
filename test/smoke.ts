@@ -45,13 +45,13 @@ const readTarget = fs.existsSync(realInput) ? realInput : sampleFile;
 const parsed = readBookmarkFile(readTarget);
 assert.ok(parsed.bookmarks.length > 0, "readBookmarkFile should parse at least one bookmark");
 
-const mergeResult = mergeBookmarkFiles([sampleFile], mergedFile, true);
+const mergeResult = mergeBookmarkFiles([sampleFile], mergedFile);
 assert.equal(mergeResult.finalCount, 15);
 const mergedHtml = fs.readFileSync(mergedFile, "utf-8");
 assert.match(mergedHtml, /<DT><H3 ADD_DATE="\d+" ICON="data:image\/svg\+xml;base64,[^"]+">/);
 assert.match(mergedHtml, /<H3 ADD_DATE="\d+" ICON="data:image\/svg\+xml;base64,[^"]+" PERSONAL_TOOLBAR_FOLDER="true">Bookmarks bar<\/H3>/);
 assert.match(mergedHtml, /<H3 ADD_DATE="\d+" ICON="data:image\/svg\+xml;base64,[^"]+">Other Bookmarks<\/H3>/);
-assert.match(mergedHtml, /<H3 ADD_DATE="\d+" ICON="data:image\/svg\+xml;base64,[^"]+">docs\.github\.com<\/H3>/);
+assert.doesNotMatch(mergedHtml, />docs\.github\.com<\/H3>/, "Other Bookmarks should be semantic-first by default, not domain-grouped");
 assert.match(mergedHtml, />#__CODER<\/H3>/);
 assert.match(mergedHtml, />###MINECRAFT<\/H3>/);
 assert.match(mergedHtml, />###SECURITY_RE<\/H3>/);
@@ -74,7 +74,11 @@ assert.equal(classifyBookmark({ title: "Python Django course", url: "https://dri
 assert.equal(classifyBookmark({ title: "IELTS English notes", url: "https://docs.google.com/document/d/ielts", folderPath: "" }), "#__STUDY/##ENGLISH/###DRIVE_DOCS");
 assert.equal(classifyBookmark({ title: "ChatGPT", url: "https://chatgpt.com/", folderPath: "" }), "#__AI/##CHAT/###CORE_CHAT");
 
-const exportedCount = exportBookmarks(sampleFile, jsonFile, "json", true);
+const groupedFile = path.join(tmp, "merged-grouped.html");
+mergeBookmarkFiles([sampleFile], groupedFile, true);
+assert.match(fs.readFileSync(groupedFile, "utf-8"), />docs\.github\.com<\/H3>/, "explicit groupByDomain should still be available");
+
+const exportedCount = exportBookmarks(sampleFile, jsonFile, "json");
 assert.equal(exportedCount, 15);
 assert.equal(JSON.parse(fs.readFileSync(jsonFile, "utf-8")).length, 15);
 

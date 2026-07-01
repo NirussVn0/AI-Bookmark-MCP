@@ -23,7 +23,7 @@
 | Prefix | Ý nghĩa | Vị trí | Ví dụ |
 |--------|---------|--------|-------|
 | `@` | **QUICK ACCESS** — truy cập thường xuyên, pinned, daily driver | Luôn ở top, ngay dưới bookmarks bar | `@DAILY`, `@SOCIAL`, `@WORK`, `@TEMP` |
-| `#` | **CATEGORY ARCHIVE** — tất cả bookmark thuộc lĩnh vực đó | Sau `@`, nhóm theo domain | `#__AI`, `#__CODER`, `#__DESIGN` |
+| `#` | **CATEGORY ARCHIVE** — kho lưu trữ semantic theo lĩnh vực/chủ đề | Trong `Other Bookmarks`, nhóm theo ý nghĩa chứ không nhóm theo domain mặc định | `#__AI`, `#__CODER`, `#__DESIGN` |
 | `##` | **SUBCATEGORY** — phân loại con trong `#` | Bên trong `#` folder | `##DEV AI`, `##TTS AI`, `##HOSTING` |
 | `__` | **SYSTEM/META** — folder hệ thống, không chứa bookmark thường | Cuối file hoặc ẩn | `__PIN`, `__ARCHIVE`, `__TRASH` |
 
@@ -46,8 +46,8 @@ Bookmarks bar/
 ├── [icon-only shortcuts]       ← link title rỗng, chỉ hiện favicon, bấm 1 phát vào luôn
 └── __QUICK/                    ← truy cập nhanh có phân cấp nhỏ
 
-Other Bookmarks/                ← toàn bộ archive, phân tầng 3–4 lớp
-└── #__CATEGORY/##SUB/###DOMAIN/
+Other Bookmarks/                ← toàn bộ archive semantic, phân tầng 3–4 lớp
+└── #__CATEGORY/##SUB/###TOPIC_OR_BUCKET/
 ```
 
 Không đặt toàn bộ `#__AI`, `#__CODER` trực tiếp ngoài root nữa. Tất cả archive phải nằm trong `Other Bookmarks`.
@@ -86,6 +86,8 @@ __QUICK/
 
 ### 2.2. Other Bookmarks deep archive rules
 
+Archive là kho lưu trữ lớn, ưu tiên semantic grouping. Không tạo folder chỉ vì nhiều link cùng domain. Domain/subdomain dùng để dedup và nhận dạng, không phải default folder axis.
+
 Archive phải cho phép 3–4 tầng:
 
 ```
@@ -93,6 +95,8 @@ Other Bookmarks/#__CODER/##GITHUB_REPOS/###AI_AGENT_LLM/
 Other Bookmarks/#__AI/##CREATIVE/###IMAGE_GEN/
 Other Bookmarks/#__TOOLS/##PRIVACY_TEMP/###PROXY_BROWSER/
 ```
+
+Domain grouping chỉ dùng khi audit/debug với `groupByDomain: true` hoặc `--group-by-domain`. Output chính mặc định không tạo `github.com/`, `drive.google.com/`... folder nếu các link đã nằm đúng semantic bucket.
 
 GitHub repos phải ưu tiên phân theo mảng:
 
@@ -291,10 +295,17 @@ Trước khi so sánh, chuẩn hoá URL:
 ### 4.2. Quy tắc giữ lại khi trùng URL
 
 Khi 2 bookmark cùng URL normalized:
-- **Giữ** bookmark có title mô tả tốt hơn (dài hơn, có nghĩa hơn)
+- **Giữ** bookmark có title gọn, sạch, mô tả tốt hơn; không ưu tiên title dài nếu nó nhiễu
 - **Giữ** bookmark có `ADD_DATE` mới hơn (timestamp lớn hơn)
 - **Gộp** icon: giữ icon base64 nếu có
 - Nếu URL là `javascript:`, `chrome://`, `about:` → xoá luôn
+
+Subdomain khác domain thì không coi là trùng:
+- `docs.example.com/page` khác `example.com/page`
+- `api.github.com` khác `github.com`
+- GitHub repo normalize theo `github.com/owner/repo`, strip path sâu như `/blob`, `/tree`, `/issues`
+
+Trong `Other Bookmarks`, nếu normalized URL trùng thì chỉ giữ 1 bản tốt nhất. Chỉ giữ 2 link gần giống nhau khi thật sự khác nội dung lớn: subdomain khác, app route khác có ý nghĩa, hoặc trang con không bị normalize về cùng canonical URL.
 
 ### 4.3. Xoá bookmark rác
 
@@ -341,7 +352,8 @@ Bookmark vào `@` khi **thỏa ÍT NHẤT 1**:
 - Prefix BẮT BUỘC: `@`, `#`, `##`, `__`
 - Tên folder: **UPPERCASE** hoặc **Title Case**, không dấu nếu có thể
 - Không dùng tên mù như "New folder", "fdggfdfgdfgdfg", "fsdfsdsdff", "temp"
-- Không dùng emoji trong tên folder (gây encoding issue khi import)
+- Không dùng emoji trực tiếp trong tên folder (gây encoding issue khi import)
+- Emoji visual phải đi qua `ICON="data:image/svg+xml;base64,..."` trên `<H3>` folder, sinh từ `src/icons.ts`
 - Sub-folder dùng `##` thay vì lồng sâu
 
 ### 6.2. Bookmark naming
@@ -360,6 +372,27 @@ Bookmark vào `@` khi **thỏa ÍT NHẤT 1**:
 - Ưu tiên tiếng Anh cho title (browser default)
 - Giữ tiếng Việt nếu là site Việt Nam (Shopee VN, Tài Liệu Ôn Thi, etc.)
 - Không dịch title — chỉ cleanup
+
+### 6.4. Emoji / Folder icon rules
+
+- Không đặt emoji trong text folder name: `🤖 #__AI` là sai.
+- Dùng SVG emoji data URI trong thuộc tính `ICON` của `<H3>` folder.
+- Emoji chỉ là visual scan layer, không phải taxonomy key.
+- Mapping nằm trong TypeScript source of truth: `src/icons.ts`.
+- Tất cả folder trong output chính phải có `ICON="data:image/svg+xml;base64,..."`.
+- Icon-only bookmark bar shortcuts được phép title rỗng để trình duyệt chỉ hiện favicon.
+
+Ví dụ đúng:
+
+```html
+<DT><H3 ADD_DATE="..." ICON="data:image/svg+xml;base64,...">#__AI</H3>
+```
+
+Ví dụ sai:
+
+```html
+<DT><H3>🤖 #__AI</H3>
+```
 
 ---
 

@@ -11,7 +11,7 @@ import { countTree } from "./parser.js";
 import { exportBookmarks, mergeBookmarkFiles, readBookmarkFile } from "./index.js";
 
 function usage(): string {
-  return `ai-bookmark-mcp commands:\n  merge --out output.html file1.html file2.html\n  export --format json --out out.json input.html\n  index --db db input.html [--limit N] [--fetch-public] [--use-browser]\n  search-index --db db "query"\n  stats input.html\n  tree input.html [--depth N]\n  browser-check [--host localhost] [--port 9222]\n  harness-check`;
+  return `ai-bookmark-mcp commands:\n  merge --out output.html file1.html file2.html [--group-by-domain]\n  export --format json --out out.json input.html [--group-by-domain]\n  index --db db input.html [--limit N] [--fetch-public] [--use-browser]\n  search-index --db db "query"\n  stats input.html\n  tree input.html [--depth N]\n  browser-check [--host localhost] [--port 9222]\n  harness-check`;
 }
 
 export async function runCli(argv = process.argv.slice(2)): Promise<void> {
@@ -21,7 +21,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
   switch (cmd) {
     case "merge": {
       const out = requireArg(getString(args.out), "--out");
-      const result = mergeBookmarkFiles(args._, out);
+      const result = mergeBookmarkFiles(args._, out, Boolean(args["group-by-domain"]));
       console.log(JSON.stringify(result, null, 2));
       break;
     }
@@ -29,7 +29,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
       const input = requireArg(args._[0], "input.html");
       const out = requireArg(getString(args.out), "--out");
       const format = (getString(args.format) ?? "html") as "html" | "json" | "csv" | "markdown";
-      const count = exportBookmarks(input, out, format);
+      const count = exportBookmarks(input, out, format, Boolean(args["group-by-domain"]));
       console.log(`Exported ${count} bookmarks to ${out}`);
       break;
     }
